@@ -44,16 +44,18 @@ class DocumentService:
             os.remove(temp_file_path)
 
     def _load_content(self, file_path: str) -> str:
+        logger.info(f"Loading content from document: {file_path}")
         return FileUtils.load_file_content(file_path)
 
     def _split_content(self, content: str) -> list:
         text_splitter = CharacterTextSplitter(separator="\n", chunk_size=2000, chunk_overlap=200)
+        logger.info(f"Splitting text")
         return text_splitter.split_text(content)
 
     def _generate_embeddings(self, chunks: list) -> bytes:
         embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         embeddings = embedding_model.embed_documents(chunks)
-        logger.debug(f"Generated embeddings: {embeddings}")
+        logger.info(f"Generated embeddings: {embeddings}")
         return json.dumps(embeddings).encode('utf-8')
 
     def _store_document(self, filename: str, content: str, embeddings: bytes) -> Document:
@@ -61,4 +63,5 @@ class DocumentService:
         self.db.add(document)
         self.db.commit()
         self.db.refresh(document)
+        logger.info(f"Stored document in database: {filename}")
         return document
