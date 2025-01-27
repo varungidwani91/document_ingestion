@@ -12,6 +12,8 @@ logger = LoggingUtils.get_logger(__name__)
 class DocumentService:
     def __init__(self, db: Session):
         self.db = db
+        self.user_selected_documents = {}
+
 
     async def ingest_document(self, file):
         logger.info(f"Extracting content from file: {file.filename}")
@@ -65,3 +67,24 @@ class DocumentService:
         self.db.refresh(document)
         logger.info(f"Stored document in database: {filename}")
         return document
+
+
+    def store_selected_documents(self, user_id: str, document_names: list[str]):
+        # Store the selected document names in a dictionary for simplicity
+        self.user_selected_documents[user_id] = document_names
+        logger.info(f"Stored selected documents for user {user_id}: {document_names}")
+
+    def get_selected_document_embeddings(self, user_id: str):
+        # Retrieve the selected document names for the user
+        document_names = self.user_selected_documents.get(user_id, [])
+        if not document_names:
+            logger.warning(f"No documents selected for user {user_id}")
+            return []
+
+        # Query the database for the embeddings of the selected documents
+        stmt = select(Document).where(Document.name.in_(document_names))
+        documents = self.db.execute(stmt).scalars().all()
+
+        embeddings = [doc.embedding for doc in documents]
+        logger.info(f"Retrieved embeddings for user {user_id}: {embeddings}")
+        return embeddings

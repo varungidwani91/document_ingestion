@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from src.api import document_ingestion, user
+from src.api import document_ingestion, user, document_selection, qa
 from src.database import Base, engine
 from src.utils.logging_utils import LoggingUtils
 
@@ -17,6 +17,8 @@ Base.metadata.create_all(bind=engine)
 logger.info("Including API routers")
 app.include_router(document_ingestion.router, prefix="/api/v1")
 app.include_router(user.router, prefix="/api/v1")
+app.include_router(document_selection.router, prefix="/api/v1")
+app.include_router(qa.router, prefix="/api/v1")
 
 # Application startup event
 @app.on_event("startup")
