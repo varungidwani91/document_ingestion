@@ -1,9 +1,10 @@
 import os
 import json
+import traceback
 from sqlalchemy.orm import Session
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
-from src.models.document import Document
+from src.models.document import Document, Embedding
 from src.utils.logging_utils import LoggingUtils
 from src.utils.file_utils import FileUtils
 
@@ -41,6 +42,10 @@ class DocumentService:
 
             logger.info(f"Document stored in database: {file.filename}")
             return document
+        except Exception as e:
+            logger.error(f"Error processing document {file.filename}: {str(e)}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            raise
         finally:
             # Clean up the temporary file
             os.remove(temp_file_path)
@@ -57,15 +62,21 @@ class DocumentService:
     def _generate_embeddings(self, chunks: list) -> bytes:
         embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         embeddings = embedding_model.embed_documents(chunks)
-        logger.info(f"Generated embeddings: {embeddings}")
+        logger.info(f"Generated embeddings")
         return json.dumps(embeddings).encode('utf-8')
 
-    def _store_document(self, filename: str, content: str, embeddings: bytes) -> Document:
-        document = Document(name=filename, embedding=embeddings)
+    def _store_document(self, filename: str, chunks: list, embeddings: list) -> Document:
+        document = Document(file_name=filename)
         self.db.add(document)
         self.db.commit()
         self.db.refresh(document)
-        logger.info(f"Stored document in database: {filename}")
+
+        for chunk, embedding in zip(chunks, embeddings):
+            embedding_record = Embedding(document_id=document.document_id, embedding=json.dumps(embedding).encode('utf-8'), text_chunk=chunk)
+            self.db.add(embedding_record)
+
+        self.db.commit()
+        logger.info(f"Stored document and embeddings in database: {filename}")
         return document
 
 
